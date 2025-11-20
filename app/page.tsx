@@ -479,12 +479,26 @@ export default function SamikStoreUltimate() {
 
       </main>
 
-      {/* MOBILE NAV BAR */}
+     {/* MOBILE NAV BAR - UPDATED */}
       <div className="md:hidden fixed bottom-0 w-full bg-white border-t flex justify-around py-3 z-40 text-xs font-medium text-gray-400 shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
-        <button onClick={() => setActiveTab('dashboard')} className={cn("flex flex-col items-center gap-1", activeTab==='dashboard' && "text-indigo-600")}><LayoutDashboard size={22}/></button>
-        <button onClick={() => setActiveTab('pos')} className={cn("flex flex-col items-center gap-1", activeTab==='pos' && "text-indigo-600")}><ShoppingBag size={22}/></button>
-        <button onClick={() => setActiveTab('inventory')} className={cn("flex flex-col items-center gap-1", activeTab==='inventory' && "text-indigo-600")}><Package size={22}/></button>
-        <button onClick={() => setActiveTab('settings')} className={cn("flex flex-col items-center gap-1", activeTab==='settings' && "text-indigo-600")}><Settings size={22}/></button>
+        <button onClick={() => setActiveTab('dashboard')} className={cn("flex flex-col items-center gap-1", activeTab==='dashboard' && "text-indigo-600")}>
+          <LayoutDashboard size={20}/> <span className="text-[10px]">Home</span>
+        </button>
+        <button onClick={() => setActiveTab('pos')} className={cn("flex flex-col items-center gap-1", activeTab==='pos' && "text-indigo-600")}>
+          <ShoppingBag size={20}/> <span className="text-[10px]">Kasir</span>
+        </button>
+        
+        {/* TOMBOL LAPORAN DITAMBAHKAN DISINI */}
+        <button onClick={() => setActiveTab('history')} className={cn("flex flex-col items-center gap-1", activeTab==='history' && "text-indigo-600")}>
+          <History size={20}/> <span className="text-[10px]">Laporan</span>
+        </button>
+
+        <button onClick={() => setActiveTab('inventory')} className={cn("flex flex-col items-center gap-1", activeTab==='inventory' && "text-indigo-600")}>
+          <Package size={20}/> <span className="text-[10px]">Stok</span>
+        </button>
+        <button onClick={() => setActiveTab('settings')} className={cn("flex flex-col items-center gap-1", activeTab==='settings' && "text-indigo-600")}>
+          <Settings size={20}/> <span className="text-[10px]">Akun</span>
+        </button>
       </div>
 
       {/* MODAL: Product Edit */}
