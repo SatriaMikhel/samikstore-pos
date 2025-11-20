@@ -6,7 +6,7 @@ import {
   Trash2, ArrowLeft, ShoppingBag, TrendingUp, TrendingDown, 
   Wallet, MapPin, AlertTriangle, History, Receipt, Printer,
   Settings, Download, LogOut, Plus, Edit, Save, Tag, Percent, 
-  BarChart3, BookOpen, ChevronDown, ChevronUp, Lock, ShieldCheck
+  BarChart3, BookOpen, ChevronDown, ChevronUp, Lock, ShieldCheck, Image as ImageIcon
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -26,16 +26,23 @@ const formatRupiah = (number: number) => {
 
 // --- Types ---
 type Tab = "dashboard" | "pos" | "inventory" | "notes" | "history" | "settings";
-type Product = { id: number; name: string; price: number; stock: number; category: string };
+type Product = { 
+  id: number; 
+  name: string; 
+  price: number; 
+  stock: number; 
+  category: string; 
+  image?: string; // NEW: Bisa simpan URL gambar
+};
 type CartItem = Product & { qty: number };
 type Transaction = { id: string; date: string; rawTotal: number; tax: number; discount: number; finalTotal: number; items: CartItem[] };
 
 const DEFAULT_PRODUCTS: Product[] = [
-  { id: 1, name: "Kopi Gula Aren", price: 18000, stock: 50, category: "Minuman" },
-  { id: 2, name: "Croissant Butter", price: 22000, stock: 5, category: "Makanan" },
-  { id: 3, name: "Air Mineral", price: 5000, stock: 100, category: "Minuman" },
+  { id: 1, name: "Kopi Gula Aren", price: 18000, stock: 50, category: "Minuman", image: "https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=200&auto=format&fit=crop" },
+  { id: 2, name: "Croissant Butter", price: 22000, stock: 5, category: "Makanan", image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?q=80&w=200&auto=format&fit=crop" },
+  { id: 3, name: "Air Mineral", price: 5000, stock: 100, category: "Minuman" }, // Tanpa gambar (pakai icon)
   { id: 4, name: "Dimsum Mentai", price: 30000, stock: 15, category: "Snack" },
-  { id: 5, name: "Nasi Goreng", price: 25000, stock: 0, category: "Makanan" },
+  { id: 5, name: "Nasi Goreng", price: 25000, stock: 0, category: "Makanan", image: "https://images.unsplash.com/photo-1603133872878-684f208fb74b?q=80&w=200&auto=format&fit=crop" },
 ];
 
 export default function SamikStoreUltimate() {
@@ -51,9 +58,7 @@ export default function SamikStoreUltimate() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
-  
-  // UBAH DISINI: Default false agar tertutup rapi saat awal buka
-  const [showGuide, setShowGuide] = useState(false); 
+  const [showGuide, setShowGuide] = useState(false);
   
   // --- Business Data ---
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
@@ -73,7 +78,7 @@ export default function SamikStoreUltimate() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [weather, setWeather] = useState<any>(null);
 
-  // 1. LOAD DATA & AUTH LOGIC
+  // 1. LOAD DATA
   useEffect(() => {
     const load = (key: string, setter: Function, def: any) => {
       const saved = localStorage.getItem(`samikstore_${key}`);
@@ -96,13 +101,13 @@ export default function SamikStoreUltimate() {
       setHasPin(false);
       setIsAuthenticated(true);
     }
-
     setIsLoaded(true);
 
+    // Weather
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=-6.2088&longitude=106.8456&current_weather=true`)
       .then(res => res.json())
       .then(data => setWeather(data.current_weather))
-      .catch(err => console.log(err));
+      .catch(() => {});
   }, []);
 
   // 2. SAVE DATA
@@ -131,7 +136,7 @@ export default function SamikStoreUltimate() {
     return days.map((day, i) => ({ day, value: values[i], height: (values[i] / maxVal) * 100 }));
   }, [transactions]);
 
-  // --- Auth Logic ---
+  // --- CRUD & Logic ---
   const handleLogin = () => {
     if (pinInput === savedPin) {
       setIsAuthenticated(true);
@@ -167,7 +172,33 @@ export default function SamikStoreUltimate() {
     setPinInput("");
   };
 
-  // --- POS Logic ---
+  // CRUD: Delete with Confirmation
+  const deleteProduct = (id: number) => {
+    if (confirm("Yakin ingin menghapus produk ini? Data tidak bisa dikembalikan.")) {
+      setProducts(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
+  // CRUD: Save/Edit
+  const saveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const data = {
+       id: editingProduct ? editingProduct.id : Date.now(),
+       name: (form.elements.namedItem('name') as HTMLInputElement).value,
+       price: Number((form.elements.namedItem('price') as HTMLInputElement).value),
+       stock: Number((form.elements.namedItem('stock') as HTMLInputElement).value),
+       category: (form.elements.namedItem('category') as HTMLInputElement).value,
+       image: (form.elements.namedItem('image') as HTMLInputElement).value,
+    };
+    
+    if (data.price < 0 || data.stock < 0) return alert("Harga/Stok tidak boleh minus!");
+
+    setProducts(prev => editingProduct ? prev.map(p => p.id === editingProduct.id ? data : p) : [...prev, data]);
+    setShowProductModal(false);
+  };
+
+  // POS Logic
   const addToCart = (p: Product) => {
     if (p.stock <= 0) return;
     setCart(prev => {
@@ -190,13 +221,11 @@ export default function SamikStoreUltimate() {
       finalTotal: finalTotal,
       items: [...cart]
     };
-
     setTransactions(prev => [newTx, ...prev]);
     setProducts(products.map(p => {
       const inCart = cart.find(c => c.id === p.id);
       return inCart ? { ...p, stock: p.stock - inCart.qty } : p;
     }));
-    
     setCart([]);
     setDiscount(0);
     setIsMobileCartOpen(false);
@@ -261,7 +290,6 @@ export default function SamikStoreUltimate() {
       </aside>
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 min-h-screen overflow-y-auto">
-        
         {/* MOBILE HEADER */}
         <header className="md:hidden flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-900 capitalize">{activeTab}</h2>
@@ -271,7 +299,6 @@ export default function SamikStoreUltimate() {
         {/* === DASHBOARD === */}
         {activeTab === "dashboard" && (
           <div className="max-w-6xl mx-auto space-y-6">
-            {/* Hero Widget */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 bg-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[200px]">
                  <div className="z-10">
@@ -288,44 +315,20 @@ export default function SamikStoreUltimate() {
               </div>
             </div>
 
-            {/* COMPACT USER GUIDE (VERSI MINI) */}
+            {/* Compact Guide */}
             <div className="bg-slate-800 rounded-2xl p-4 text-white shadow-lg">
-               <div 
-                  onClick={() => setShowGuide(!showGuide)} 
-                  className="flex items-center justify-between cursor-pointer select-none"
-               >
+               <div onClick={() => setShowGuide(!showGuide)} className="flex items-center justify-between cursor-pointer select-none">
                   <div className="flex items-center gap-2">
                       <BookOpen className="text-indigo-400" size={18}/>
                       <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-100">Panduan Cepat</h3>
                   </div>
-                  <button className="text-slate-400 hover:text-white transition">
-                     {showGuide ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
-                  </button>
+                  <button className="text-slate-400 hover:text-white transition">{showGuide ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}</button>
                </div>
-               
                {showGuide && (
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-700 animate-in slide-in-from-top-2">
-                    <div className="flex gap-3 items-start">
-                       <span className="text-indigo-400 font-bold text-lg">1.</span>
-                       <div>
-                          <h4 className="font-bold text-white text-sm">Buat Keamanan</h4>
-                          <p className="text-xs text-slate-400 mt-1">Set PIN di menu Akun untuk privasi.</p>
-                       </div>
-                    </div>
-                    <div className="flex gap-3 items-start">
-                       <span className="text-indigo-400 font-bold text-lg">2.</span>
-                       <div>
-                          <h4 className="font-bold text-white text-sm">Kasir & Stok</h4>
-                          <p className="text-xs text-slate-400 mt-1">Menu Kasir otomatis potong stok Gudang.</p>
-                       </div>
-                    </div>
-                    <div className="flex gap-3 items-start">
-                       <span className="text-indigo-400 font-bold text-lg">3.</span>
-                       <div>
-                          <h4 className="font-bold text-white text-sm">Download Laporan</h4>
-                          <p className="text-xs text-slate-400 mt-1">Unduh CSV/Excel di menu Pengaturan.</p>
-                       </div>
-                    </div>
+                    <div className="flex gap-3 items-start"><span className="text-indigo-400 font-bold text-lg">1.</span><div><h4 className="font-bold text-white text-sm">Buat Keamanan</h4><p className="text-xs text-slate-400 mt-1">Set PIN di menu Akun untuk privasi.</p></div></div>
+                    <div className="flex gap-3 items-start"><span className="text-indigo-400 font-bold text-lg">2.</span><div><h4 className="font-bold text-white text-sm">Kasir & Stok</h4><p className="text-xs text-slate-400 mt-1">Menu Kasir otomatis potong stok Gudang.</p></div></div>
+                    <div className="flex gap-3 items-start"><span className="text-indigo-400 font-bold text-lg">3.</span><div><h4 className="font-bold text-white text-sm">Download Laporan</h4><p className="text-xs text-slate-400 mt-1">Unduh CSV/Excel di menu Pengaturan.</p></div></div>
                  </div>
                )}
             </div>
@@ -371,15 +374,20 @@ export default function SamikStoreUltimate() {
                    </div>
                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                       {categories.map(cat => (
-                        <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition", selectedCategory === cat ? "bg-indigo-600 text-white shadow-md" : "bg-white text-gray-500 hover:bg-gray-100")}>
-                           {cat}
-                        </button>
+                        <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition", selectedCategory === cat ? "bg-indigo-600 text-white shadow-md" : "bg-white text-gray-500 hover:bg-gray-100")}>{cat}</button>
                       ))}
                    </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 lg:pb-0">
                   {filteredProducts.map(p => (
                     <div key={p.id} onClick={() => addToCart(p)} className={cn("bg-white p-4 rounded-2xl border shadow-sm cursor-pointer hover:border-indigo-500 transition group relative overflow-hidden", p.stock===0 && "opacity-60 pointer-events-none")}>
+                       {p.image ? (
+                         <div className="h-32 mb-3 rounded-xl overflow-hidden">
+                           <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500"/>
+                         </div>
+                       ) : (
+                         <div className="h-32 bg-indigo-50 rounded-xl mb-3 flex items-center justify-center text-indigo-200"><Package size={40}/></div>
+                       )}
                        <div className="flex justify-between items-start mb-2">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{p.category}</span>
                           <span className={cn("text-[10px] px-2 py-0.5 rounded font-bold", p.stock < 5 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500")}>{p.stock} left</span>
@@ -401,10 +409,7 @@ export default function SamikStoreUltimate() {
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                    {cart.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2">
-                         <ShoppingBag size={48} className="opacity-20"/>
-                         <p>Keranjang Kosong</p>
-                      </div>
+                      <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2"><ShoppingBag size={48} className="opacity-20"/><p>Keranjang Kosong</p></div>
                    ) : (
                      cart.map(item => (
                        <div key={item.id} className="flex justify-between items-center group">
@@ -422,18 +427,9 @@ export default function SamikStoreUltimate() {
                 </div>
                 <div className="p-5 bg-slate-50 border-t space-y-3">
                    <div className="flex justify-between text-sm text-gray-600"><span>Subtotal</span><span>{formatRupiah(subTotal)}</span></div>
-                   <div className="flex justify-between items-center text-sm text-gray-600">
-                      <div className="flex items-center gap-2"><Tag size={14}/> Pajak (11%)</div>
-                      <input type="checkbox" checked={taxRate > 0} onChange={(e) => setTaxRate(e.target.checked ? 0.11 : 0)} className="accent-indigo-600"/>
-                   </div>
-                   <div className="flex justify-between items-center text-sm text-gray-600">
-                      <div className="flex items-center gap-2"><Percent size={14}/> Diskon (Rp)</div>
-                      <input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="w-20 text-right text-xs border rounded p-1 focus:ring-indigo-500"/>
-                   </div>
-                   <div className="border-t border-dashed border-gray-300 pt-3 flex justify-between items-center">
-                      <span className="font-bold text-lg text-slate-800">Total</span>
-                      <span className="font-bold text-xl text-indigo-600">{formatRupiah(finalTotal)}</span>
-                   </div>
+                   <div className="flex justify-between items-center text-sm text-gray-600"><div className="flex items-center gap-2"><Tag size={14}/> Pajak (11%)</div><input type="checkbox" checked={taxRate > 0} onChange={(e) => setTaxRate(e.target.checked ? 0.11 : 0)} className="accent-indigo-600"/></div>
+                   <div className="flex justify-between items-center text-sm text-gray-600"><div className="flex items-center gap-2"><Percent size={14}/> Diskon (Rp)</div><input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="w-20 text-right text-xs border rounded p-1 focus:ring-indigo-500"/></div>
+                   <div className="border-t border-dashed border-gray-300 pt-3 flex justify-between items-center"><span className="font-bold text-lg text-slate-800">Total</span><span className="font-bold text-xl text-indigo-600">{formatRupiah(finalTotal)}</span></div>
                    <button onClick={handleCheckout} disabled={cart.length===0} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-slate-300 disabled:opacity-50 disabled:shadow-none transition hover:scale-[1.02] active:scale-100">Bayar Sekarang</button>
                 </div>
              </div>
@@ -454,13 +450,16 @@ export default function SamikStoreUltimate() {
                <tbody className="divide-y divide-slate-100">
                  {products.map(p => (
                    <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-4 pl-6 font-bold text-slate-700">{p.name}</td>
+                      <td className="p-4 pl-6 font-bold text-slate-700 flex items-center gap-3">
+                         {p.image ? <img src={p.image} className="w-8 h-8 rounded-md object-cover"/> : <div className="w-8 h-8 bg-indigo-50 rounded-md flex items-center justify-center"><Package size={14}/></div>}
+                         {p.name}
+                      </td>
                       <td className="p-4"><span className="px-2.5 py-1 bg-slate-100 rounded-md text-xs font-medium text-slate-600">{p.category}</span></td>
                       <td className="p-4">{formatRupiah(p.price)}</td>
                       <td className="p-4"><div className={cn("w-fit px-2 py-1 rounded text-xs font-bold", p.stock<5 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600")}>{p.stock} unit</div></td>
                       <td className="p-4 pr-6 text-right gap-2 flex justify-end">
                          <button onClick={() => {setEditingProduct(p); setShowProductModal(true)}} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16}/></button>
-                         <button onClick={() => setProducts(products.filter(x => x.id !== p.id))} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+                         <button onClick={() => deleteProduct(p.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
                       </td>
                    </tr>
                  ))}
@@ -491,21 +490,14 @@ export default function SamikStoreUltimate() {
            </div>
         )}
 
-        {/* === SETTINGS (Updated with Security) === */}
+        {/* === SETTINGS === */}
         {activeTab === "settings" && (
            <div className="max-w-2xl mx-auto space-y-6">
-              {/* PIN Security Section */}
               <div className="bg-white p-6 rounded-2xl border shadow-sm">
                  <div className="flex justify-between items-start mb-4">
-                   <div>
-                      <h3 className="font-bold text-indigo-600 flex items-center gap-2"><ShieldCheck size={20}/> Keamanan Aplikasi</h3>
-                      <p className="text-sm text-gray-500 mt-1">Lindungi data toko Anda dari akses yang tidak diinginkan.</p>
-                   </div>
-                   <div className={cn("px-3 py-1 rounded-full text-xs font-bold", hasPin ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-500")}>
-                      {hasPin ? "PIN Aktif" : "Tidak Ada PIN"}
-                   </div>
+                   <div><h3 className="font-bold text-indigo-600 flex items-center gap-2"><ShieldCheck size={20}/> Keamanan Aplikasi</h3><p className="text-sm text-gray-500 mt-1">Lindungi data toko Anda dari akses yang tidak diinginkan.</p></div>
+                   <div className={cn("px-3 py-1 rounded-full text-xs font-bold", hasPin ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-500")}>{hasPin ? "PIN Aktif" : "Tidak Ada PIN"}</div>
                  </div>
-
                  {hasPin ? (
                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                      <p className="text-sm mb-3 font-medium">Keamanan PIN sedang aktif.</p>
@@ -513,10 +505,7 @@ export default function SamikStoreUltimate() {
                    </div>
                  ) : (
                    <div className="flex gap-3 items-end">
-                     <div className="flex-1">
-                       <label className="text-xs font-bold text-gray-500 block mb-2">Buat PIN Baru (Angka)</label>
-                       <input type="number" value={newPinInput} onChange={e => setNewPinInput(e.target.value)} placeholder="Contoh: 123456" className="w-full p-3 border rounded-xl bg-gray-50"/>
-                     </div>
+                     <div className="flex-1"><label className="text-xs font-bold text-gray-500 block mb-2">Buat PIN Baru (Angka)</label><input type="number" value={newPinInput} onChange={e => setNewPinInput(e.target.value)} placeholder="Contoh: 123456" className="w-full p-3 border rounded-xl bg-gray-50"/></div>
                      <button onClick={handleCreatePin} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Simpan PIN</button>
                    </div>
                  )}
@@ -542,53 +531,33 @@ export default function SamikStoreUltimate() {
               </div>
            </div>
         )}
-
       </main>
 
       {/* MOBILE NAV BAR */}
       <div className="md:hidden fixed bottom-0 w-full bg-white border-t flex justify-around py-3 z-40 text-xs font-medium text-gray-400 shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
-        <button onClick={() => setActiveTab('dashboard')} className={cn("flex flex-col items-center gap-1", activeTab==='dashboard' && "text-indigo-600")}>
-          <LayoutDashboard size={20}/> <span className="text-[10px]">Home</span>
-        </button>
-        <button onClick={() => setActiveTab('pos')} className={cn("flex flex-col items-center gap-1", activeTab==='pos' && "text-indigo-600")}>
-          <ShoppingBag size={20}/> <span className="text-[10px]">Kasir</span>
-        </button>
-        <button onClick={() => setActiveTab('history')} className={cn("flex flex-col items-center gap-1", activeTab==='history' && "text-indigo-600")}>
-          <History size={20}/> <span className="text-[10px]">Laporan</span>
-        </button>
-        <button onClick={() => setActiveTab('inventory')} className={cn("flex flex-col items-center gap-1", activeTab==='inventory' && "text-indigo-600")}>
-          <Package size={20}/> <span className="text-[10px]">Stok</span>
-        </button>
-        <button onClick={() => setActiveTab('settings')} className={cn("flex flex-col items-center gap-1", activeTab==='settings' && "text-indigo-600")}>
-          <Settings size={20}/> <span className="text-[10px]">Akun</span>
-        </button>
+        <button onClick={() => setActiveTab('dashboard')} className={cn("flex flex-col items-center gap-1", activeTab==='dashboard' && "text-indigo-600")}><LayoutDashboard size={20}/> <span className="text-[10px]">Home</span></button>
+        <button onClick={() => setActiveTab('pos')} className={cn("flex flex-col items-center gap-1", activeTab==='pos' && "text-indigo-600")}><ShoppingBag size={20}/> <span className="text-[10px]">Kasir</span></button>
+        <button onClick={() => setActiveTab('history')} className={cn("flex flex-col items-center gap-1", activeTab==='history' && "text-indigo-600")}><History size={20}/> <span className="text-[10px]">Laporan</span></button>
+        <button onClick={() => setActiveTab('inventory')} className={cn("flex flex-col items-center gap-1", activeTab==='inventory' && "text-indigo-600")}><Package size={20}/> <span className="text-[10px]">Stok</span></button>
+        <button onClick={() => setActiveTab('settings')} className={cn("flex flex-col items-center gap-1", activeTab==='settings' && "text-indigo-600")}><Settings size={20}/> <span className="text-[10px]">Akun</span></button>
       </div>
 
-      {/* MODALS (Product, Receipt, Cart) are same as before ... */}
-      {/* MODAL: Product Edit */}
+      {/* MODAL: Product Edit (With Image Input) */}
       {showProductModal && (
          <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-sm rounded-3xl p-6 animate-in zoom-in-95">
                <h3 className="font-bold text-lg mb-4">{editingProduct ? "Edit Produk" : "Tambah Produk"}</h3>
-               <form onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = e.target as HTMLFormElement;
-                  const data = {
-                     id: editingProduct ? editingProduct.id : Date.now(),
-                     name: (form.elements.namedItem('name') as HTMLInputElement).value,
-                     price: Number((form.elements.namedItem('price') as HTMLInputElement).value),
-                     stock: Number((form.elements.namedItem('stock') as HTMLInputElement).value),
-                     category: (form.elements.namedItem('category') as HTMLInputElement).value,
-                  };
-                  setProducts(prev => editingProduct ? prev.map(p => p.id === editingProduct.id ? data : p) : [...prev, data]);
-                  setShowProductModal(false);
-               }} className="space-y-3">
+               <form onSubmit={saveProduct} className="space-y-3">
                   <input name="name" placeholder="Nama Produk" defaultValue={editingProduct?.name} required className="w-full p-3 border rounded-xl bg-gray-50"/>
                   <div className="flex gap-3">
                      <input name="price" type="number" placeholder="Harga" defaultValue={editingProduct?.price} required className="w-full p-3 border rounded-xl bg-gray-50"/>
                      <input name="stock" type="number" placeholder="Stok" defaultValue={editingProduct?.stock} required className="w-24 p-3 border rounded-xl bg-gray-50"/>
                   </div>
                   <input name="category" placeholder="Kategori (Mis: Makanan)" defaultValue={editingProduct?.category} required className="w-full p-3 border rounded-xl bg-gray-50"/>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-3 top-3.5 text-gray-400" size={18}/>
+                    <input name="image" placeholder="URL Gambar (Opsional)" defaultValue={editingProduct?.image} className="w-full pl-10 pr-3 py-3 border rounded-xl bg-gray-50 text-sm"/>
+                  </div>
                   <div className="flex gap-2 pt-2">
                      <button type="button" onClick={() => setShowProductModal(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Batal</button>
                      <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200">Simpan</button>
