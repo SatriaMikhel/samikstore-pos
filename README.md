@@ -1,0 +1,1 @@
+# samikstore-pos
