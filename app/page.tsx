@@ -6,7 +6,7 @@ import {
   Trash2, ArrowLeft, ShoppingBag, TrendingUp, TrendingDown, 
   Wallet, MapPin, AlertTriangle, History, Receipt, Printer,
   Settings, Download, LogOut, Plus, Edit, Save, Tag, Percent, 
-  BarChart3, BookOpen, CheckCircle2, ChevronRight
+  BarChart3, BookOpen, CheckCircle2, ChevronRight, Lock, ShieldCheck
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -39,10 +39,13 @@ const DEFAULT_PRODUCTS: Product[] = [
 ];
 
 export default function SamikStoreUltimate() {
-  // --- Auth ---
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // --- Auth & Security State ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Default false dulu sampai dicek
+  const [hasPin, setHasPin] = useState(false);
+  const [savedPin, setSavedPin] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [loginError, setLoginError] = useState(false);
+  const [newPinInput, setNewPinInput] = useState(""); // Untuk form settings
 
   // --- App State ---
   const [isLoaded, setIsLoaded] = useState(false);
@@ -67,29 +70,44 @@ export default function SamikStoreUltimate() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [weather, setWeather] = useState<any>(null);
 
-  // Load Data
+  // 1. LOAD DATA & AUTH LOGIC
   useEffect(() => {
     const load = (key: string, setter: Function, def: any) => {
       const saved = localStorage.getItem(`samikstore_${key}`);
       if (saved) setter(JSON.parse(saved));
       else setter(def);
     };
+    
+    // Load Business Data
     load('products', setProducts, DEFAULT_PRODUCTS);
     load('transactions', setTransactions, []);
     load('expense', setExpense, 0);
     
-    const session = sessionStorage.getItem('samikstore_auth');
-    if (session === 'true') setIsAuthenticated(true);
+    // Load Security Data
+    const storedPin = localStorage.getItem('samikstore_pin');
+    if (storedPin) {
+      setHasPin(true);
+      setSavedPin(storedPin);
+      // Cek sesi login jika ada PIN
+      const session = sessionStorage.getItem('samikstore_auth');
+      if (session === 'true') setIsAuthenticated(true);
+      else setIsAuthenticated(false);
+    } else {
+      // Jika TIDAK ada PIN, otomatis masuk
+      setHasPin(false);
+      setIsAuthenticated(true);
+    }
+
     setIsLoaded(true);
 
-    // Cuaca Default Jakarta (bisa diganti statis kalau API limit habis)
+    // Cuaca
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=-6.2088&longitude=106.8456&current_weather=true`)
       .then(res => res.json())
       .then(data => setWeather(data.current_weather))
-      .catch(err => console.log("Weather API Error", err));
+      .catch(err => console.log(err));
   }, []);
 
-  // Save Data
+  // 2. SAVE DATA
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem('samikstore_products', JSON.stringify(products));
@@ -115,15 +133,43 @@ export default function SamikStoreUltimate() {
     return days.map((day, i) => ({ day, value: values[i], height: (values[i] / maxVal) * 100 }));
   }, [transactions]);
 
-  // --- Logic ---
+  // --- Auth Logic ---
   const handleLogin = () => {
-    if (pinInput === "1234") {
+    if (pinInput === savedPin) {
       setIsAuthenticated(true);
       sessionStorage.setItem('samikstore_auth', 'true');
       setLoginError(false);
-    } else setLoginError(true);
+    } else {
+      setLoginError(true);
+      setPinInput("");
+    }
   };
 
+  const handleCreatePin = () => {
+    if (newPinInput.length < 4) return alert("PIN minimal 4 angka");
+    localStorage.setItem('samikstore_pin', newPinInput);
+    setSavedPin(newPinInput);
+    setHasPin(true);
+    setNewPinInput("");
+    alert("PIN Berhasil Dibuat! Logout untuk mencoba.");
+  };
+
+  const handleRemovePin = () => {
+    if (confirm("Hapus keamanan PIN? Siapapun bisa mengakses aplikasi ini.")) {
+      localStorage.removeItem('samikstore_pin');
+      setHasPin(false);
+      setSavedPin("");
+      setIsAuthenticated(true); // Pastikan tetap login
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('samikstore_auth');
+    setPinInput("");
+  };
+
+  // --- POS Logic ---
   const addToCart = (p: Product) => {
     if (p.stock <= 0) return;
     setCart(prev => {
@@ -168,13 +214,13 @@ export default function SamikStoreUltimate() {
 
   if (!isLoaded) return null;
 
-  // --- LOGIN VIEW ---
-  if (!isAuthenticated) return (
+  // --- LOGIN VIEW (Only if PIN exists & not authenticated) ---
+  if (hasPin && !isAuthenticated) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl text-center animate-in fade-in zoom-in-95">
          <div className="w-16 h-16 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-serif italic text-2xl mx-auto mb-6 shadow-lg shadow-indigo-200">S</div>
          <h1 className="text-2xl font-bold text-slate-800 mb-2">SamikStore POS</h1>
-         <p className="text-gray-500 mb-8">Enterprise Login System</p>
+         <p className="text-gray-500 mb-8">Masukkan PIN Keamanan</p>
          <input type="password" value={pinInput} readOnly className="w-full text-center text-3xl font-bold tracking-[1em] mb-8 border-b-2 border-indigo-100 focus:outline-none py-2 h-12"/>
          <div className="grid grid-cols-3 gap-4 max-w-xs mx-auto mb-6">
            {[1,2,3,4,5,6,7,8,9].map(num => (
@@ -184,7 +230,7 @@ export default function SamikStoreUltimate() {
            <button onClick={() => setPinInput(p => p + "0")} className="h-16 rounded-xl bg-gray-50 text-slate-700 font-bold">0</button>
            <button onClick={handleLogin} className="h-16 rounded-xl bg-indigo-600 text-white font-bold"><ArrowLeft className="mx-auto"/></button>
          </div>
-         {loginError && <p className="text-red-500 text-sm animate-pulse">PIN Salah (Hint: 1234)</p>}
+         {loginError && <p className="text-red-500 text-sm animate-pulse">PIN Salah</p>}
       </div>
     </div>
   );
@@ -209,7 +255,11 @@ export default function SamikStoreUltimate() {
           <NavButton active={activeTab === "history"} icon={<History size={20}/>} label="Laporan" onClick={() => setActiveTab("history")} />
           <NavButton active={activeTab === "settings"} icon={<Settings size={20}/>} label="Pengaturan" onClick={() => setActiveTab("settings")} />
         </nav>
-        <div className="p-4"><button onClick={() => { setIsAuthenticated(false); setPinInput(""); }} className="flex items-center gap-3 text-red-400 hover:text-red-300 px-4 py-2 w-full text-sm font-medium"><LogOut size={18}/> Logout</button></div>
+        {hasPin && (
+          <div className="p-4 border-t border-slate-800">
+            <button onClick={handleLogout} className="flex items-center gap-3 text-red-400 hover:text-red-300 px-4 py-2 w-full text-sm font-medium"><LogOut size={18}/> Logout</button>
+          </div>
+        )}
       </aside>
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 min-h-screen overflow-y-auto">
@@ -217,7 +267,7 @@ export default function SamikStoreUltimate() {
         {/* MOBILE HEADER */}
         <header className="md:hidden flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-900 capitalize">{activeTab}</h2>
-          <button onClick={() => setIsAuthenticated(false)}><LogOut className="text-red-500" size={20}/></button>
+          {hasPin && <button onClick={handleLogout}><LogOut className="text-red-500" size={20}/></button>}
         </header>
 
         {/* === DASHBOARD === */}
@@ -240,8 +290,38 @@ export default function SamikStoreUltimate() {
               </div>
             </div>
 
+            {/* User Guide (Updated) */}
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 text-white shadow-xl">
+               <div className="flex items-center gap-3 mb-6 border-b border-slate-700 pb-4">
+                  <BookOpen className="text-indigo-400"/>
+                  <h3 className="text-xl font-bold">Panduan Cepat SamikStore</h3>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="flex gap-4">
+                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">1</div>
+                     <div>
+                        <h4 className="font-bold text-indigo-200 mb-1">Keamanan Akun</h4>
+                        <p className="text-sm text-slate-400 leading-relaxed">Defaultnya aplikasi ini <strong>tanpa PIN</strong>. Jika ingin aman, buat PIN Anda di menu <strong>Pengaturan (Akun)</strong>.</p>
+                     </div>
+                  </div>
+                  <div className="flex gap-4">
+                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">2</div>
+                     <div>
+                        <h4 className="font-bold text-indigo-200 mb-1">Transaksi Kasir</h4>
+                        <p className="text-sm text-slate-400 leading-relaxed">Buka menu <strong>Kasir</strong>. Klik barang, atur pajak/diskon, lalu bayar. Stok akan berkurang otomatis.</p>
+                     </div>
+                  </div>
+                  <div className="flex gap-4">
+                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">3</div>
+                     <div>
+                        <h4 className="font-bold text-indigo-200 mb-1">Laporan & Reset</h4>
+                        <p className="text-sm text-slate-400 leading-relaxed">Cek riwayat penjualan di menu <strong>Laporan</strong>. Anda juga bisa download data ke Excel.</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-               {/* Chart */}
                <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border">
                   <h3 className="font-bold mb-6 flex items-center gap-2"><BarChart3 size={20} className="text-indigo-600"/> Grafik Penjualan (7 Hari)</h3>
                   <div className="flex items-end gap-2 h-48 pt-4 border-b border-dashed border-gray-200 pb-2">
@@ -255,8 +335,6 @@ export default function SamikStoreUltimate() {
                      ))}
                   </div>
                </div>
-
-               {/* Low Stock */}
                <div className="bg-white p-6 rounded-3xl shadow-sm border">
                   <h3 className="font-bold mb-4 flex items-center gap-2"><AlertTriangle size={20} className="text-orange-500"/> Perlu Restock</h3>
                   <div className="space-y-3 overflow-y-auto max-h-60 pr-2 custom-scrollbar">
@@ -270,40 +348,6 @@ export default function SamikStoreUltimate() {
                   </div>
                </div>
             </div>
-
-            {/* === FITUR BARU: PANDUAN PENGGUNAAN (USER GUIDE) === */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 text-white shadow-xl">
-               <div className="flex items-center gap-3 mb-6 border-b border-slate-700 pb-4">
-                  <BookOpen className="text-indigo-400"/>
-                  <h3 className="text-xl font-bold">Panduan Cepat SamikStore</h3>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* Step 1 */}
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">1</div>
-                     <div>
-                        <h4 className="font-bold text-indigo-200 mb-1">Persiapan Data</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">Masuk ke menu <strong>Produk</strong>. Hapus produk contoh dan tambahkan barang jualanmu sendiri. Atur stok dan kategori.</p>
-                     </div>
-                  </div>
-                  {/* Step 2 */}
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">2</div>
-                     <div>
-                        <h4 className="font-bold text-indigo-200 mb-1">Transaksi Kasir</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">Buka menu <strong>Kasir (POS)</strong>. Klik barang untuk masuk keranjang. Anda bisa atur <strong>Pajak (11%)</strong> atau <strong>Diskon</strong> sebelum bayar.</p>
-                     </div>
-                  </div>
-                  {/* Step 3 */}
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">3</div>
-                     <div>
-                        <h4 className="font-bold text-indigo-200 mb-1">Laporan & Reset</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">Cek riwayat di menu <strong>Laporan</strong>. Untuk mengunduh data ke Excel atau menghapus semua data, buka menu <strong>Pengaturan</strong>.</p>
-                     </div>
-                  </div>
-               </div>
-            </div>
           </div>
         )}
 
@@ -311,7 +355,6 @@ export default function SamikStoreUltimate() {
         {activeTab === "pos" && (
           <div className="flex flex-col lg:flex-row gap-6 h-full">
              <div className="flex-1">
-                {/* Filter & Search */}
                 <div className="mb-6 space-y-4">
                    <div className="relative">
                       <Search className="absolute left-4 top-3.5 text-gray-400" size={20}/>
@@ -325,8 +368,6 @@ export default function SamikStoreUltimate() {
                       ))}
                    </div>
                 </div>
-
-                {/* Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 lg:pb-0">
                   {filteredProducts.map(p => (
                     <div key={p.id} onClick={() => addToCart(p)} className={cn("bg-white p-4 rounded-2xl border shadow-sm cursor-pointer hover:border-indigo-500 transition group relative overflow-hidden", p.stock===0 && "opacity-60 pointer-events-none")}>
@@ -344,8 +385,6 @@ export default function SamikStoreUltimate() {
                   ))}
                 </div>
              </div>
-
-             {/* Cart Panel */}
              <div className="hidden lg:flex w-96 bg-white rounded-3xl border flex-col h-[calc(100vh-100px)] sticky top-4 shadow-xl overflow-hidden">
                 <div className="p-5 bg-slate-50 border-b">
                    <h3 className="font-bold text-lg">Detail Pesanan</h3>
@@ -360,10 +399,7 @@ export default function SamikStoreUltimate() {
                    ) : (
                      cart.map(item => (
                        <div key={item.id} className="flex justify-between items-center group">
-                          <div>
-                             <p className="font-bold text-sm">{item.name}</p>
-                             <p className="text-xs text-gray-500">{formatRupiah(item.price)} x {item.qty}</p>
-                          </div>
+                          <div><p className="font-bold text-sm">{item.name}</p><p className="text-xs text-gray-500">{formatRupiah(item.price)} x {item.qty}</p></div>
                           <div className="text-right">
                              <p className="font-bold text-sm">{formatRupiah(item.price * item.qty)}</p>
                              <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition">
@@ -375,8 +411,6 @@ export default function SamikStoreUltimate() {
                      ))
                    )}
                 </div>
-                
-                {/* Summary Section */}
                 <div className="p-5 bg-slate-50 border-t space-y-3">
                    <div className="flex justify-between text-sm text-gray-600"><span>Subtotal</span><span>{formatRupiah(subTotal)}</span></div>
                    <div className="flex justify-between items-center text-sm text-gray-600">
@@ -387,14 +421,11 @@ export default function SamikStoreUltimate() {
                       <div className="flex items-center gap-2"><Percent size={14}/> Diskon (Rp)</div>
                       <input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="w-20 text-right text-xs border rounded p-1 focus:ring-indigo-500"/>
                    </div>
-
                    <div className="border-t border-dashed border-gray-300 pt-3 flex justify-between items-center">
                       <span className="font-bold text-lg text-slate-800">Total</span>
                       <span className="font-bold text-xl text-indigo-600">{formatRupiah(finalTotal)}</span>
                    </div>
-                   <button onClick={handleCheckout} disabled={cart.length===0} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-slate-300 disabled:opacity-50 disabled:shadow-none transition hover:scale-[1.02] active:scale-100">
-                      Bayar Sekarang
-                   </button>
+                   <button onClick={handleCheckout} disabled={cart.length===0} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-slate-300 disabled:opacity-50 disabled:shadow-none transition hover:scale-[1.02] active:scale-100">Bayar Sekarang</button>
                 </div>
              </div>
           </div>
@@ -451,12 +482,39 @@ export default function SamikStoreUltimate() {
            </div>
         )}
 
-        {/* === SETTINGS === */}
+        {/* === SETTINGS (Updated with Security) === */}
         {activeTab === "settings" && (
            <div className="max-w-2xl mx-auto space-y-6">
+              {/* PIN Security Section */}
+              <div className="bg-white p-6 rounded-2xl border shadow-sm">
+                 <div className="flex justify-between items-start mb-4">
+                   <div>
+                      <h3 className="font-bold text-indigo-600 flex items-center gap-2"><ShieldCheck size={20}/> Keamanan Aplikasi</h3>
+                      <p className="text-sm text-gray-500 mt-1">Lindungi data toko Anda dari akses yang tidak diinginkan.</p>
+                   </div>
+                   <div className={cn("px-3 py-1 rounded-full text-xs font-bold", hasPin ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-500")}>
+                      {hasPin ? "PIN Aktif" : "Tidak Ada PIN"}
+                   </div>
+                 </div>
+
+                 {hasPin ? (
+                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                     <p className="text-sm mb-3 font-medium">Keamanan PIN sedang aktif.</p>
+                     <button onClick={handleRemovePin} className="text-red-600 text-sm font-bold hover:underline flex items-center gap-2"><Lock size={14}/> Hapus/Nonaktifkan PIN</button>
+                   </div>
+                 ) : (
+                   <div className="flex gap-3 items-end">
+                     <div className="flex-1">
+                       <label className="text-xs font-bold text-gray-500 block mb-2">Buat PIN Baru (Angka)</label>
+                       <input type="number" value={newPinInput} onChange={e => setNewPinInput(e.target.value)} placeholder="Contoh: 123456" className="w-full p-3 border rounded-xl bg-gray-50"/>
+                     </div>
+                     <button onClick={handleCreatePin} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Simpan PIN</button>
+                   </div>
+                 )}
+              </div>
+
               <div className="bg-white p-6 rounded-2xl border shadow-sm">
                  <h3 className="font-bold mb-4 flex items-center gap-2"><Download size={20}/> Export Data</h3>
-                 <p className="text-sm text-gray-500 mb-4">Unduh laporan penjualan dalam format CSV untuk dibuka di Excel.</p>
                  <button onClick={() => {
                     const headers = ["ID,Tanggal,Total,Item"];
                     const rows = transactions.map(t => `${t.id},${t.date},${t.finalTotal},"${t.items.map(i => `${i.name}(${i.qty})`).join('; ')}"`);
@@ -471,7 +529,6 @@ export default function SamikStoreUltimate() {
               
               <div className="bg-white p-6 rounded-2xl border shadow-sm">
                  <h3 className="font-bold mb-4 text-red-600 flex items-center gap-2"><AlertTriangle size={20}/> Reset Data</h3>
-                 <p className="text-sm text-gray-500 mb-4">Menghapus semua data transaksi dan mengembalikan stok ke default. Aksi ini tidak bisa dibatalkan.</p>
                  <button onClick={() => { if(confirm("Yakin reset data?")) { localStorage.clear(); window.location.reload(); } }} className="border border-red-200 text-red-600 px-4 py-2 rounded-lg font-medium hover:bg-red-50">Reset Aplikasi</button>
               </div>
            </div>
@@ -479,7 +536,7 @@ export default function SamikStoreUltimate() {
 
       </main>
 
-     {/* MOBILE NAV BAR - UPDATED */}
+      {/* MOBILE NAV BAR */}
       <div className="md:hidden fixed bottom-0 w-full bg-white border-t flex justify-around py-3 z-40 text-xs font-medium text-gray-400 shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
         <button onClick={() => setActiveTab('dashboard')} className={cn("flex flex-col items-center gap-1", activeTab==='dashboard' && "text-indigo-600")}>
           <LayoutDashboard size={20}/> <span className="text-[10px]">Home</span>
@@ -487,12 +544,9 @@ export default function SamikStoreUltimate() {
         <button onClick={() => setActiveTab('pos')} className={cn("flex flex-col items-center gap-1", activeTab==='pos' && "text-indigo-600")}>
           <ShoppingBag size={20}/> <span className="text-[10px]">Kasir</span>
         </button>
-        
-        {/* TOMBOL LAPORAN DITAMBAHKAN DISINI */}
         <button onClick={() => setActiveTab('history')} className={cn("flex flex-col items-center gap-1", activeTab==='history' && "text-indigo-600")}>
           <History size={20}/> <span className="text-[10px]">Laporan</span>
         </button>
-
         <button onClick={() => setActiveTab('inventory')} className={cn("flex flex-col items-center gap-1", activeTab==='inventory' && "text-indigo-600")}>
           <Package size={20}/> <span className="text-[10px]">Stok</span>
         </button>
@@ -501,6 +555,7 @@ export default function SamikStoreUltimate() {
         </button>
       </div>
 
+      {/* MODALS (Product, Receipt, Cart) are same as before ... */}
       {/* MODAL: Product Edit */}
       {showProductModal && (
          <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
