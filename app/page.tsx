@@ -6,7 +6,8 @@ import {
   Trash2, ArrowLeft, ShoppingBag, TrendingUp, TrendingDown, 
   Wallet, MapPin, AlertTriangle, History, Receipt, Printer,
   Settings, Download, LogOut, Plus, Edit, Save, Tag, Percent, 
-  BarChart3, BookOpen, CheckCircle2, ChevronRight, Lock, ShieldCheck
+  BarChart3, BookOpen, CheckCircle2, ChevronRight, Lock, ShieldCheck,
+  ChevronDown, ChevronUp
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -40,17 +41,18 @@ const DEFAULT_PRODUCTS: Product[] = [
 
 export default function SamikStoreUltimate() {
   // --- Auth & Security State ---
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Default false dulu sampai dicek
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasPin, setHasPin] = useState(false);
   const [savedPin, setSavedPin] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [loginError, setLoginError] = useState(false);
-  const [newPinInput, setNewPinInput] = useState(""); // Untuk form settings
+  const [newPinInput, setNewPinInput] = useState("");
 
   // --- App State ---
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(true); // STATE BARU: Buka/Tutup Panduan
   
   // --- Business Data ---
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
@@ -78,29 +80,24 @@ export default function SamikStoreUltimate() {
       else setter(def);
     };
     
-    // Load Business Data
     load('products', setProducts, DEFAULT_PRODUCTS);
     load('transactions', setTransactions, []);
     load('expense', setExpense, 0);
     
-    // Load Security Data
     const storedPin = localStorage.getItem('samikstore_pin');
     if (storedPin) {
       setHasPin(true);
       setSavedPin(storedPin);
-      // Cek sesi login jika ada PIN
       const session = sessionStorage.getItem('samikstore_auth');
       if (session === 'true') setIsAuthenticated(true);
       else setIsAuthenticated(false);
     } else {
-      // Jika TIDAK ada PIN, otomatis masuk
       setHasPin(false);
       setIsAuthenticated(true);
     }
 
     setIsLoaded(true);
 
-    // Cuaca
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=-6.2088&longitude=106.8456&current_weather=true`)
       .then(res => res.json())
       .then(data => setWeather(data.current_weather))
@@ -159,7 +156,7 @@ export default function SamikStoreUltimate() {
       localStorage.removeItem('samikstore_pin');
       setHasPin(false);
       setSavedPin("");
-      setIsAuthenticated(true); // Pastikan tetap login
+      setIsAuthenticated(true);
     }
   };
 
@@ -214,7 +211,7 @@ export default function SamikStoreUltimate() {
 
   if (!isLoaded) return null;
 
-  // --- LOGIN VIEW (Only if PIN exists & not authenticated) ---
+  // --- LOGIN VIEW ---
   if (hasPin && !isAuthenticated) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl text-center animate-in fade-in zoom-in-95">
@@ -290,35 +287,46 @@ export default function SamikStoreUltimate() {
               </div>
             </div>
 
-            {/* User Guide (Updated) */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 text-white shadow-xl">
-               <div className="flex items-center gap-3 mb-6 border-b border-slate-700 pb-4">
-                  <BookOpen className="text-indigo-400"/>
-                  <h3 className="text-xl font-bold">Panduan Cepat SamikStore</h3>
+            {/* User Guide (Collapsible) */}
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl transition-all duration-300">
+               <div 
+                  onClick={() => setShowGuide(!showGuide)} 
+                  className="flex items-center justify-between cursor-pointer select-none"
+               >
+                  <div className="flex items-center gap-3">
+                      <BookOpen className="text-indigo-400"/>
+                      <h3 className="text-xl font-bold">Panduan Cepat</h3>
+                  </div>
+                  <button className="bg-slate-700 p-1 rounded-full hover:bg-slate-600 transition">
+                     {showGuide ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                  </button>
                </div>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">1</div>
-                     <div>
-                        <h4 className="font-bold text-indigo-200 mb-1">Keamanan Akun</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">Defaultnya aplikasi ini <strong>tanpa PIN</strong>. Jika ingin aman, buat PIN Anda di menu <strong>Pengaturan (Akun)</strong>.</p>
-                     </div>
-                  </div>
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">2</div>
-                     <div>
-                        <h4 className="font-bold text-indigo-200 mb-1">Transaksi Kasir</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">Buka menu <strong>Kasir</strong>. Klik barang, atur pajak/diskon, lalu bayar. Stok akan berkurang otomatis.</p>
-                     </div>
-                  </div>
-                  <div className="flex gap-4">
-                     <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">3</div>
-                     <div>
-                        <h4 className="font-bold text-indigo-200 mb-1">Laporan & Reset</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">Cek riwayat penjualan di menu <strong>Laporan</strong>. Anda juga bisa download data ke Excel.</p>
-                     </div>
-                  </div>
-               </div>
+               
+               {showGuide && (
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-6 pt-6 border-t border-slate-700 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex gap-4">
+                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">1</div>
+                       <div>
+                          <h4 className="font-bold text-indigo-200 mb-1">Keamanan Akun</h4>
+                          <p className="text-sm text-slate-400 leading-relaxed">Defaultnya <strong>tanpa PIN</strong>. Buat PIN di menu <strong>Pengaturan</strong> untuk mengunci akses.</p>
+                       </div>
+                    </div>
+                    <div className="flex gap-4">
+                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">2</div>
+                       <div>
+                          <h4 className="font-bold text-indigo-200 mb-1">Transaksi Kasir</h4>
+                          <p className="text-sm text-slate-400 leading-relaxed">Buka menu <strong>Kasir</strong>. Klik barang, atur pajak/diskon, lalu bayar. Stok otomatis update.</p>
+                       </div>
+                    </div>
+                    <div className="flex gap-4">
+                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">3</div>
+                       <div>
+                          <h4 className="font-bold text-indigo-200 mb-1">Laporan & Reset</h4>
+                          <p className="text-sm text-slate-400 leading-relaxed">Cek riwayat di menu <strong>Laporan</strong>. Download Excel di <strong>Pengaturan</strong>.</p>
+                       </div>
+                    </div>
+                 </div>
+               )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
