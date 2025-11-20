@@ -6,8 +6,7 @@ import {
   Trash2, ArrowLeft, ShoppingBag, TrendingUp, TrendingDown, 
   Wallet, MapPin, AlertTriangle, History, Receipt, Printer,
   Settings, Download, LogOut, Plus, Edit, Save, Tag, Percent, 
-  BarChart3, BookOpen, CheckCircle2, ChevronRight, Lock, ShieldCheck,
-  ChevronDown, ChevronUp
+  BarChart3, BookOpen, ChevronDown, ChevronUp, Lock, ShieldCheck
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -52,7 +51,9 @@ export default function SamikStoreUltimate() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
-  const [showGuide, setShowGuide] = useState(true); // STATE BARU: Buka/Tutup Panduan
+  
+  // UBAH DISINI: Default false agar tertutup rapi saat awal buka
+  const [showGuide, setShowGuide] = useState(false); 
   
   // --- Business Data ---
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
@@ -287,42 +288,42 @@ export default function SamikStoreUltimate() {
               </div>
             </div>
 
-            {/* User Guide (Collapsible) */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl transition-all duration-300">
+            {/* COMPACT USER GUIDE (VERSI MINI) */}
+            <div className="bg-slate-800 rounded-2xl p-4 text-white shadow-lg">
                <div 
                   onClick={() => setShowGuide(!showGuide)} 
                   className="flex items-center justify-between cursor-pointer select-none"
                >
-                  <div className="flex items-center gap-3">
-                      <BookOpen className="text-indigo-400"/>
-                      <h3 className="text-xl font-bold">Panduan Cepat</h3>
+                  <div className="flex items-center gap-2">
+                      <BookOpen className="text-indigo-400" size={18}/>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-100">Panduan Cepat</h3>
                   </div>
-                  <button className="bg-slate-700 p-1 rounded-full hover:bg-slate-600 transition">
-                     {showGuide ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                  <button className="text-slate-400 hover:text-white transition">
+                     {showGuide ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
                   </button>
                </div>
                
                {showGuide && (
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-6 pt-6 border-t border-slate-700 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex gap-4">
-                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">1</div>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-700 animate-in slide-in-from-top-2">
+                    <div className="flex gap-3 items-start">
+                       <span className="text-indigo-400 font-bold text-lg">1.</span>
                        <div>
-                          <h4 className="font-bold text-indigo-200 mb-1">Keamanan Akun</h4>
-                          <p className="text-sm text-slate-400 leading-relaxed">Defaultnya <strong>tanpa PIN</strong>. Buat PIN di menu <strong>Pengaturan</strong> untuk mengunci akses.</p>
+                          <h4 className="font-bold text-white text-sm">Buat Keamanan</h4>
+                          <p className="text-xs text-slate-400 mt-1">Set PIN di menu Akun untuk privasi.</p>
                        </div>
                     </div>
-                    <div className="flex gap-4">
-                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">2</div>
+                    <div className="flex gap-3 items-start">
+                       <span className="text-indigo-400 font-bold text-lg">2.</span>
                        <div>
-                          <h4 className="font-bold text-indigo-200 mb-1">Transaksi Kasir</h4>
-                          <p className="text-sm text-slate-400 leading-relaxed">Buka menu <strong>Kasir</strong>. Klik barang, atur pajak/diskon, lalu bayar. Stok otomatis update.</p>
+                          <h4 className="font-bold text-white text-sm">Kasir & Stok</h4>
+                          <p className="text-xs text-slate-400 mt-1">Menu Kasir otomatis potong stok Gudang.</p>
                        </div>
                     </div>
-                    <div className="flex gap-4">
-                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-900/50 shrink-0">3</div>
+                    <div className="flex gap-3 items-start">
+                       <span className="text-indigo-400 font-bold text-lg">3.</span>
                        <div>
-                          <h4 className="font-bold text-indigo-200 mb-1">Laporan & Reset</h4>
-                          <p className="text-sm text-slate-400 leading-relaxed">Cek riwayat di menu <strong>Laporan</strong>. Download Excel di <strong>Pengaturan</strong>.</p>
+                          <h4 className="font-bold text-white text-sm">Download Laporan</h4>
+                          <p className="text-xs text-slate-400 mt-1">Unduh CSV/Excel di menu Pengaturan.</p>
                        </div>
                     </div>
                  </div>
